@@ -1,0 +1,21 @@
+taxa	distribution	data area	stock biomass (T)	landings	lifespan	habitat	deadfall location	median mass g	notes
+Cephalopoda	global	global	284000000	3500000	mixed	mixed	mixed	550	
+Dosiduscus gigas 	E Pacific	Xile, Peru, equatorial E Paciffic	15000000	550000	2	pelagic	pelagic	15000	
+Dosiduscus gigas 	E Pacific	Mexico	220000	60000	2	pelagic	pelagic	15000	
+Illex argentinus	SW Atlantic	SW Atlantic	900000	600000	1	shelf and slope	slope	550	
+Todarodes pacificus	N Pacific	NW Pacific (Japan area)	2300000	450000	1	shelf and slope	slope	700	there are more stocks beside the 2 iuncluded here. Total population ranges from 2-5 milion
+Ommastrephes bartramii 	Subtropical worldwide	N Pacific	350000	50000	1	pelagic	pelagic	2500	
+Doryteuthis pealeii 	NW Atlantic	North Carolina to Cape cod	80000	15000	1	shelf and slope	shelf	335	
+Doryteuthys gahi	SW Atlantic, SE Pacific	Falkland	60000	60000	1	shelf and slope	shelf	275	
+Onykia ingens	subarctic, circumpolar	Falkland	60000	0	2	pelagic	pelagic	15000	
+Doryteuthis opalescens 	NE Pacific	USA west coast	NA	60000	1	shelf	shelf	100	
+Nototodarus gouldi (solanii) 	S Autralia, N New Zealand	New Zaland	NA	40000	1	shelf	shelf	400	
+Illex illecebrosus 	NW Atlantic	USA east coast	NA	30000	1	shelf and slope	slope	500	
+Loligo reynaudii	S Africa	S Africa	25500	7500	1	shelf	shelf	500	
+Heterololigo bleekeri	Japan shelf, Yellow sea	Japan	NA	6500	1	shelf	shelf	300	
+Octopus vulgaris	Atlantic, NW Pacific	NW Africa	NA	1000	1	shelf	shelf	3150	
+Enteroctopus dofleini	N Pacific	Alaska	6000	750	4	shelf, slope and bathial	shelf	25000	
+Enteroctopus dofleini	N Pacific	Aleutians	NA	300	4	shelf, slope and bathial	shelf	25000	
+Cuttlefishes	ICES area +	ICES area	NA	15000	1	shelf	shelf	500	
+Ocotpus vulgaris, Eledone spp.	ICES area +	ICES area	NA	12500	1	shelf	shelf	1500	
+Ommastrephidae	ICES area +	ICES area	NA	5000	1	shelf and slope	mixed	550	
