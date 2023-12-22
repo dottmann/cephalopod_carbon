@@ -17,13 +17,12 @@
 ##
 ## ---------------------------
 
-##################################################################
+ 
 # Load libraries:
 library(tidyverse)
 library(ggthemes)
 library(patchwork)
 library(jpeg)
-
 
 # Clear environment:
 rm(list = ls())
@@ -76,12 +75,11 @@ df <- rbind(df1, df2)
 
 
 # Physiological parameters:
-# m <- 700 #  mass of cephalopod [g] (Ottmann et al in 2024) taking 1/2 of logarithmic biomass-weighted mean asymptotic size of all species ((exp(sum(log(mean_a_size_weighted_wt_cpue_cephalopoda) * mean_wt_cpue_cephalopoda, na.rm = T) / sum(mean_wt_cpue_cephalopoda, na.rm = T))) / 2)
 epsilon <- 0.7 # Assimilation efficiency
 f0 <- 0.6 # Average feeding
 fc <- 0.2 # Critical feeding
 h <- 100 # Coefficient of maximum consumption
-h_low <- 22.3 # Sensitivity: 22.3 =for fish
+h_low <- 22.3 # Sensitivity: 22.3 = for fish
 
 
 df <- df %>%
@@ -90,10 +88,8 @@ df <- df %>%
                                     deadfall_location == "slope" ~ 100,
                                     T ~ 10),
          
-         lifespan = case_when(lifespan == "mixed" ~ 2, # Years
+         lifespan = case_when(lifespan == "mixed" ~ 1.5, # Years
                               T ~ as.numeric(lifespan)),
-         
-         # m = m/5, # Do some sensitivity to th emas (instead of 1/2 of asymptotic wight we do 1/10)
          
          carbon_deadfall = t / lifespan * somatic_ratio * wet_dry * dry_carbon, # Tonnes
          sequestration = carbon_deadfall * residence_time, # Tonnes year
@@ -127,12 +123,18 @@ df <- df %>%
 write.table(df, "data/flux_table.txt", append = F, quote = F, sep = "\t", row.names = F, col.names = T)
 
 
-
 ######################################################################################
+
+# Plot colors:
+my_colors1 <- c("black", "red")
+my_colors3 <- c("bisque3", "chocolate")
+my_colors4 <- c("grey50", "orange", "red")
+my_labels <- as.character(17:1)
+
 # Time series analysis:
 # Load data:
-species_id <- read.delim("FAO_data/CL_FI_SPECIES_GROUPS.txt", sep = '\t', header = T, stringsAsFactors = F)
-landings <- read.delim("FAO_data/Capture_Quantity.txt", sep = '\t', header = T, stringsAsFactors = F)
+species_id <- read.delim("data/CL_FI_SPECIES_GROUPS.txt", sep = '\t', header = T, stringsAsFactors = F)
+landings <- read.delim("data/Capture_Quantity.txt", sep = '\t', header = T, stringsAsFactors = F)
 
 # Set an "average" lifespan for cephalopods:
 lifespan <- 1.5 # years
@@ -172,7 +174,7 @@ landings <- rbind(landings_fish, landings_ceph)
 p1 <- ggplot(data = landings_ceph) +
   geom_hline(yintercept = 0, alpha = .5) +
   geom_area(aes(x = year, y = carbon_deadfall / 1000), color = "black", alpha = .2) +
-  scale_color_manual(values = my_colors4) +
+  scale_color_manual(values = my_colors1) +
   ylab(label = "Catch (Thousand t C / yr)") +
   theme_base() +
   labs(linetype = NULL) +
@@ -180,30 +182,12 @@ p1 <- ggplot(data = landings_ceph) +
 
 p1
 
-
 ######################################################################################
 # Add schematic as a panel:
-p2 <- readJPEG("/plots/panel_b.jpg", native = TRUE)
-
-p <- p3 + p4 + p1 + p2 + plot_layout(ncol = 2) & # , heights = unit(c(10, 50), c('mm', 'null'))
-  theme(plot.background = element_blank()) &
-  plot_annotation(tag_levels = "a")
-
-p
-
-ggsave("plots/Figure_1.png", p, height = 85 , width = 90, units = "mm", scale = 3)
-
+p2 <- readJPEG("plots/panel_b.jpg", native = TRUE)
 
 ######################################################################################
 # Catch and biomass estimates.
-
-my_colors1 <- c("bisque3", "chocolate")
-my_colors2 <- c("grey50", "orange", "red")
-my_colors3 <- c("black", "orange", "red")
-my_colors4 <- c("black", "red")
-
-my_labels <- as.character(17:1)
-
 
 # Merge by taxa and type:
 dftemp <- df %>%
@@ -230,7 +214,7 @@ dftemp$taxa <- factor(dftemp$taxa,
 
 p3 <- ggplot() +
   geom_bar(data = subset(dftemp,  taxa != "Cephalopoda"), aes(x = taxa, y = t / 1e6, fill = type), stat = 'identity', position = position_dodge(), width = 0.7) + # 
-  scale_fill_manual(values = my_colors1, labels = c("Biomass", "Landings")) +
+  scale_fill_manual(values = my_colors3, labels = c("Biomass", "Landings")) +
   scale_x_discrete(labels = my_labels) +
   labs(fill = NULL) +
   ylab("Million tonnes (/ year)") +
@@ -298,14 +282,13 @@ dftemp2$taxa <- factor(dftemp2$taxa,
 
 
 p4 <- ggplot() +
-  # geom_hline(yintercept = 1e6, alpha = .5, linetype = "dotted") +
   geom_bar(data = subset(dftemp2, type == "biomass" & taxa != "Cephalopoda"), aes(x = taxa, y = flux / 1000, fill = type_flux), stat = 'identity', position = position_dodge(), width = 0.7, alpha = .5) + # fill = "orange",
   geom_bar(data = subset(dftemp2, type == "landings" & taxa != "Cephalopoda"), aes(x = taxa, y = flux / 1000, fill = type_flux), stat = 'identity', position = position_dodge(),  width = 0.7) + # fill = "orange",
   geom_errorbar(data = subset(dftemp2_low, type == "biomass" & taxa != "Cephalopoda"), aes(x = taxa, ymin = flux / 1000, ymax = flux / 1000, color = type_flux), 
                 position = position_dodge(width = .7), lwd = .3, width = .7, show.legend = FALSE) +
   scale_x_discrete(labels = my_labels) +
-  scale_fill_manual(values = my_colors2, labels = c("Deadfall", "Feces", "Respiration")) +
-  scale_color_manual(values = my_colors2, labels = c("Deadfall", "Feces", "Respiration")) +
+  scale_fill_manual(values = my_colors4, labels = c("Deadfall", "Feces", "Respiration")) +
+  scale_color_manual(values = my_colors4, labels = c("Deadfall", "Feces", "Respiration")) +
   labs(fill = NULL) +
   ylab("Thousand tonnes C / year") +
   coord_flip() +
@@ -319,8 +302,7 @@ p4
 
 ######################################################################################
 # Combine panels:
-
-p <- p1 + p2 + p3 + p4 + plot_layout(ncol = 2) & # , heights = unit(c(10, 50), c('mm', 'null'))
+p <- p1 + p2 + p3 + p4 + plot_layout(ncol = 2) & 
   theme(plot.background = element_blank()) &
   plot_annotation(tag_levels = "a")
 
@@ -332,7 +314,6 @@ ggsave("plots/Figure_1.png", p, height = 85 , width = 90, units = "mm", scale = 
 ######################################################################################
 
 # Global cephalopod deadfall based on biomasss estimates from Rodhus & Nigmatullin 1996 (Million tonnes)
-
 lifespan <- 1.5 # years
 
 # Lower range:
@@ -347,12 +328,8 @@ t <- (193 + 375) /2
 round(t / lifespan * somatic_ratio * wet_dry * dry_carbon, 1)
 
 
-
-
-
 # Physiological parameters:
 m <- 700 #  mass of cephalopod [g] (Ottmann et al in review) taking 1/2 of median asymptotic size of all species
-# m <- m/5 # Try making it 1/10th of the emdian asymptotic size
 epsilon <- 0.7 # Assimilation efficiency
 f0 <- 0.6 # Average feeding
 fc <- 0.2 # Critical feeding
@@ -368,11 +345,10 @@ waste <- (waste_individual / 1e6) / m * (t * 1e6) * wet_dry * dry_carbon
 
 
 # Fish
-t <- 7000 # milion tones
+t <- 1000 # million tonnes
 h <- 22.3
 
 respiration_individual <- epsilon * h * fc * m^(-1/3) * m
-# waste_individual <- (1 - epsilon) * h * (f0 - fc) * m^(2/3)
 waste_individual <- (1 - epsilon) * h * (f0 - fc) * m^(-1/3) * m  
 
 respiration <- (respiration_individual / 1e6) / m * (t * 1e6) * wet_dry * dry_carbon
@@ -382,3 +358,4 @@ respiration + waste
 (respiration + waste) / t
 
 
+#                  END OF SCRIPT    
