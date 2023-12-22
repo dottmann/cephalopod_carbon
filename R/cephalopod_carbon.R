@@ -1,6 +1,21 @@
 
-
-
+## Cephalopod carbon
+##
+## Authors: Daniel Ottmann 
+## Email: daniel.ottmann.riera@gmail.com
+##
+## Date created: September 2023
+## Last update:  December 2023
+##
+## ---------------------------
+##
+## Readme:
+##
+## This script estimates carbon flux of cephalopods in the paper: "Increasing high-sea fisheries impact long-term sequestration of carbon by cephalopods"
+## It uses biomass and catchestmiates of 17 major stocks and of global biomass estimates of cephalopods.
+## It further estimates respiration and production of fecal pellets by cephalopods, and sequestered carbon in the ocean by the 17 major stocks.
+##
+## ---------------------------
 
 ##################################################################
 # Load libraries:
@@ -19,7 +34,7 @@ data <- read.delim("data/summary_biomass_catch.txt", sep = '\t', header = T, str
 #------------------------------------------------
 
 # Set some values:
-somatic_ratio <- 0.9 # Wet weight of the carcass - gonades (Ref)
+somatic_ratio <- 0.9 # Wet weight of the carcass - gonads (Wells & Clarke 1996)
 wet_dry <- 0.225     # Wet weight to dry weight (Hoving et al 2017)
 dry_carbon <- .44    # Dry weight to carbon weight (Hoving et al 2017)
 
@@ -37,7 +52,6 @@ df <- data %>%
 biomass_to_landings_ratio <-  df %>%
   filter(!is.na(biomass), taxa != "Cephalopoda") %>%
   mutate(biomass_to_landings = landings / biomass) %>%
-  # summarise(weighted_ratio = median(biomass_to_landings)) %>% # median
   summarise(weighted_ratio = round(sum(biomass_to_landings * biomass) / sum(biomass), 2)) %>% # weighted mean
   as.numeric()
 
@@ -84,8 +98,8 @@ df <- df %>%
          carbon_deadfall = t / lifespan * somatic_ratio * wet_dry * dry_carbon, # Tonnes
          sequestration = carbon_deadfall * residence_time, # Tonnes year
          
-         respiration_ind = epsilon * h * fc * m^(-1/3) * m * wet_dry * dry_carbon,  # Converted to carbon [Tons]
-         feces_ind = (1 - epsilon) * h * (f0 - fc) * m^(2/3) * wet_dry * dry_carbon,  # Converted to carbon [Tons]
+         respiration_ind = epsilon * h * fc * m^(-1/3) * m * wet_dry * dry_carbon,  # Converted to carbon [Tonnes]
+         feces_ind = (1 - epsilon) * h * (f0 - fc) * m^(2/3) * wet_dry * dry_carbon,  # Converted to carbon [Tonnes]
          
          respiration = (respiration_ind / 1e6) * (t * 1e6) / m, # Tonnes
          feces = (feces_ind / 1e6) * (t * 1e6) / m, # Tonnes
@@ -97,11 +111,11 @@ df <- df %>%
          
          #----------------------------------------------------------
          
-         respiration_ind_low = epsilon * h_low * fc * m^(-1/3) * wet_dry * dry_carbon * m,  # Converted to carbon [Tons]
-         feces_ind_low = (1 - epsilon) * h_low * (f0 - fc) * m^(2/3) * wet_dry * dry_carbon,  # Converted to carbon [Tons]
+         respiration_ind_low = epsilon * h_low * fc * m^(-1/3) * wet_dry * dry_carbon * m,  # Converted to carbon [Tonnes]
+         feces_ind_low = (1 - epsilon) * h_low * (f0 - fc) * m^(2/3) * wet_dry * dry_carbon,  # Converted to carbon [Tonnes]
          
-         respiration_low = (respiration_ind_low / 1e6) * (t * 1e6) / m, # Tons
-         feces_low = (feces_ind_low  / 1e6) * (t * 1e6) / m, # Tons
+         respiration_low = (respiration_ind_low / 1e6) * (t * 1e6) / m, # Tonnes
+         feces_low = (feces_ind_low  / 1e6) * (t * 1e6) / m, # Tonnes
          
          respiration_low = case_when(type == "landings" ~ 0,
                                      T ~ respiration_low),
