@@ -1,5 +1,5 @@
-taxa	distribution	data area	stock biomass (T)	landings	lifespan	habitat	deadfall location	median mass g	notes
-Cephalopoda	global	global	284000000	3500000	mixed	mixed	mixed	700	
+taxa	distribution	data area	stock biomass (T)	catch	lifespan	habitat	deadfall location	median mass g	notes
+Cephalopoda	global	global	284000000	4100000	mixed	mixed	mixed	550	
 Dosiduscus gigas 	E Pacific	Xile, Peru, equatorial E Paciffic	15000000	550000	2	pelagic	pelagic	15000	
 Dosiduscus gigas 	E Pacific	Mexico	220000	60000	2	pelagic	pelagic	15000	
 Illex argentinus	SW Atlantic	SW Atlantic	900000	600000	1	shelf and slope	slope	550	

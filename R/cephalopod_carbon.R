@@ -5,7 +5,7 @@
 ## Email: daniel.ottmann.riera@gmail.com
 ##
 ## Date created: September 2023
-## Last update:  December 2023
+## Last update:  March 2024
 ##
 ## ---------------------------
 ##
@@ -17,7 +17,8 @@
 ##
 ## ---------------------------
 
- 
+
+##################################################################
 # Load libraries:
 library(tidyverse)
 library(ggthemes)
@@ -32,8 +33,14 @@ data <- read.delim("data/summary_biomass_catch.txt", sep = '\t', header = T, str
 
 #------------------------------------------------
 
+# Set color scgemes:
+my_colors1 <- c("bisque3", "chocolate")
+my_colors2 <- c("grey50", "orange", "red")
+my_colors3 <- c("black", "orange", "red")
+my_colors4 <- c("black", "red")
+
 # Set some values:
-somatic_ratio <- 0.9 # Wet weight of the carcass - gonads (Wells & Clarke 1996)
+somatic_ratio <- 0.9 # Wet weight of the carcass - gonades (Ref)
 wet_dry <- 0.225     # Wet weight to dry weight (Hoving et al 2017)
 dry_carbon <- .44    # Dry weight to carbon weight (Hoving et al 2017)
 
@@ -47,27 +54,28 @@ df <- data %>%
          m = median.mass.g) # Grams (Half of the asymptotic weight of each species. Median was taken for groups of species)
 
 
-# Calculate mean biomass to landings ratio:
-biomass_to_landings_ratio <-  df %>%
+# Calculate mean biomass to catch ratio:
+biomass_to_catch_ratio <-  df %>%
   filter(!is.na(biomass), taxa != "Cephalopoda") %>%
-  mutate(biomass_to_landings = landings / biomass) %>%
-  summarise(weighted_ratio = round(sum(biomass_to_landings * biomass) / sum(biomass), 2)) %>% # weighted mean
+  mutate(biomass_to_catch = catch / biomass) %>%
+  # summarise(weighted_ratio = median(biomass_to_catch)) %>% # median
+  summarise(weighted_ratio = round(sum(biomass_to_catch * biomass) / sum(biomass), 2)) %>% # weighted mean
   as.numeric()
 
 # Estimate biomass in stocks where it is missing:
 df <- df %>%
-  mutate(biomass = case_when(is.na(biomass) ~ (landings * (1/biomass_to_landings_ratio)), # This is a gross estimation
+  mutate(biomass = case_when(is.na(biomass) ~ (catch * (1/biomass_to_catch_ratio)), # This is a gross estimation
                              T ~ as.numeric(biomass)))
 
-# Arrange table to have landings and biomass in a single t column:
+# Arrange table to have catch and biomass in a single t column:
 df1 <- df %>%
   dplyr::select(-biomass) %>%
-  mutate(landings = na_if(landings, 0)) %>%
-  rename(t = landings) %>% # Tonnes
-  mutate(type = "landings")
+  mutate(catch = na_if(catch, 0)) %>%
+  rename(t = catch) %>% # Tonnes
+  mutate(type = "catch")
 
 df2 <- df %>%
-  dplyr::select(-landings) %>%
+  dplyr::select(-catch) %>%
   rename(t = biomass) %>% # Tonnes
   mutate(type = "biomass")
 
@@ -75,11 +83,14 @@ df <- rbind(df1, df2)
 
 
 # Physiological parameters:
-epsilon <- 0.7 # Assimilation efficiency
+epsylon <- 0.7 # Assimilation efficiency
+epsylon_sda <- 0.15 # Assimilation cost of consumed food
+epsylon_fec <- 0.25
 f0 <- 0.6 # Average feeding
 fc <- 0.2 # Critical feeding
 h <- 100 # Coefficient of maximum consumption
-h_low <- 22.3 # Sensitivity: 22.3 = for fish
+h_low <- 22.3 # Sensitivity: 22.3 =for fish
+n <- -1/3 # Metabolic exponent
 
 
 df <- df %>%
@@ -88,53 +99,58 @@ df <- df %>%
                                     deadfall_location == "slope" ~ 100,
                                     T ~ 10),
          
-         lifespan = case_when(lifespan == "mixed" ~ 1.5, # Years
+         lifespan = case_when(type == "catch" ~ 1, # Years. Catch is on an annual base
+                              lifespan == "mixed" & type == "biomass" ~ 1.5, # Years
                               T ~ as.numeric(lifespan)),
+         
+         # m = m/5, # Do some sensitivity to the mass (instead of 1/2 of asymptotic wight we do 1/10)
          
          carbon_deadfall = t / lifespan * somatic_ratio * wet_dry * dry_carbon, # Tonnes
          sequestration = carbon_deadfall * residence_time, # Tonnes year
          
-         respiration_ind = epsilon * h * fc * m^(-1/3) * m * wet_dry * dry_carbon,  # Converted to carbon [Tonnes]
-         feces_ind = (1 - epsilon) * h * (f0 - fc) * m^(2/3) * wet_dry * dry_carbon,  # Converted to carbon [Tonnes]
+         respiration_ind = (epsylon_sda * fc + f0) * h * m^n * wet_dry * dry_carbon,  # Mass-specific; Converted to carbon [Tonnes]
+         feces_ind = epsylon_fec * f0 * h * m^n * wet_dry * dry_carbon,  #  Mass-specific; Converted to carbon [Tonnes]
          
-         respiration = (respiration_ind / 1e6) * (t * 1e6) / m, # Tonnes
-         feces = (feces_ind / 1e6) * (t * 1e6) / m, # Tonnes
+         respiration = (respiration_ind / 1e6) * (t * 1e6), # Tonnes
+         feces = (feces_ind / 1e6) * (t * 1e6), # Tonnes
          
-         respiration = case_when(type == "landings" ~ 0,
+         respiration = case_when(type == "catch" ~ 0,
                                  T ~ respiration),
-         feces = case_when(type == "landings" ~ 0,
-                                   T ~ feces),  
+         feces = case_when(type == "catch" ~ 0,
+                           T ~ feces),  
          
          #----------------------------------------------------------
+         # Sensitivity of h:
          
-         respiration_ind_low = epsilon * h_low * fc * m^(-1/3) * wet_dry * dry_carbon * m,  # Converted to carbon [Tonnes]
-         feces_ind_low = (1 - epsilon) * h_low * (f0 - fc) * m^(2/3) * wet_dry * dry_carbon,  # Converted to carbon [Tonnes]
+         respiration_ind_low = (epsylon_sda * fc + f0) * h_low  * m^(-1/3) * wet_dry * dry_carbon,  # Mass-specific; Converted to carbon [Tonnes]
+         feces_ind_low = epsylon_fec * f0 * h_low * m^(-1/3) * wet_dry * dry_carbon,  #  Mass-specific; Converted to carbon [Tonnes]
          
-         respiration_low = (respiration_ind_low / 1e6) * (t * 1e6) / m, # Tonnes
-         feces_low = (feces_ind_low  / 1e6) * (t * 1e6) / m, # Tonnes
+         respiration_low = (respiration_ind_low / 1e6) * (t * 1e6), # Tonnes
+         feces_low = (feces_ind_low  / 1e6) * (t * 1e6), # Tonnes
          
-         respiration_low = case_when(type == "landings" ~ 0,
+         respiration_low = case_when(type == "catch" ~ 0,
                                      T ~ respiration_low),
-         feces_low = case_when(type == "landings" ~ 0,
-                                       T ~ feces_low))
+         feces_low = case_when(type == "catch" ~ 0,
+                               T ~ feces_low))
 
 
 # Outfile as txt:
 write.table(df, "data/flux_table.txt", append = F, quote = F, sep = "\t", row.names = F, col.names = T)
 
 
+
 ######################################################################################
-
-# Plot colors:
-my_colors1 <- c("black", "red")
-my_colors3 <- c("bisque3", "chocolate")
-my_colors4 <- c("grey50", "orange", "red")
-my_labels <- as.character(17:1)
-
 # Time series analysis:
 # Load data:
 species_id <- read.delim("data/CL_FI_SPECIES_GROUPS.txt", sep = '\t', header = T, stringsAsFactors = F)
 landings <- read.delim("data/Capture_Quantity.txt", sep = '\t', header = T, stringsAsFactors = F)
+sau_catch <- read.delim("data/cephalopods_sau.txt", sep = '\t', header = T, stringsAsFactors = F)
+
+# Edit sea around us data:
+sau_catch <- sau_catch %>%
+  rename(value = catch) %>%
+  mutate(value = value * 1000,
+         repported = "SAU catch")# Thousand tons
 
 # Set an "average" lifespan for cephalopods:
 lifespan <- 1.5 # years
@@ -149,9 +165,11 @@ landings_ceph <- landings %>%
   rename(species = SPECIES.ALPHA_3_CODE,
          year = PERIOD) %>%
   group_by(year) %>%
-  summarise(landings = sum(VALUE)) %>%
+  summarise(value = sum(VALUE)) %>%
+  mutate(repported = "FAO landings") %>%
+  rbind(sau_catch) %>%
   mutate(taxa = "Cephalopods",
-         carbon_deadfall = landings * somatic_ratio * wet_dry * dry_carbon)
+         carbon_deadfall = value * somatic_ratio * wet_dry * dry_carbon)
 
 # Edit fish data:
 species_id_fish <- species_id %>%
@@ -163,7 +181,8 @@ landings_fish <- landings %>%
   rename(species = SPECIES.ALPHA_3_CODE,
          year = PERIOD) %>%
   group_by(year) %>%
-  summarise(landings = sum(VALUE)) %>%
+  summarise(value = sum(VALUE)) %>%
+  mutate(repported = "FAO landings") %>%
   mutate(taxa = "Fish",
          carbon_deadfall = seq(from = .1e6, to = 1.1e6, length.out = n()))
 
@@ -171,23 +190,29 @@ landings_fish <- landings %>%
 # Put them together:
 landings <- rbind(landings_fish, landings_ceph)
 
-p1 <- ggplot(data = landings_ceph) +
+# Make plot for cephalopod carbon:
+p1 <- ggplot() +
   geom_hline(yintercept = 0, alpha = .5) +
-  geom_area(aes(x = year, y = carbon_deadfall / 1000), color = "black", alpha = .2) +
-  scale_color_manual(values = my_colors1) +
+  geom_area(data = subset(landings_ceph, repported == "SAU catch"), 
+            aes(x = year, y = carbon_deadfall / 1000), alpha = .2, color = "black") +
+  scale_color_manual(values = my_colors4) +
   ylab(label = "Catch (Thousand t C / yr)") +
   theme_base() +
   labs(linetype = NULL) +
   theme(legend.position = "bottom")
 
-p1
+# p1
+
 
 ######################################################################################
 # Add schematic as a panel:
 p2 <- readJPEG("plots/panel_b.jpg", native = TRUE)
 
+
 ######################################################################################
 # Catch and biomass estimates.
+my_labels <- as.character(17:1)
+
 
 # Merge by taxa and type:
 dftemp <- df %>%
@@ -210,21 +235,23 @@ taxa_order <- dftemp %>%
 taxa_order <- taxa_order$taxa
 
 dftemp$taxa <- factor(dftemp$taxa,
-                       levels = taxa_order)
+                      levels = taxa_order)
 
+# Make plot:
 p3 <- ggplot() +
-  geom_bar(data = subset(dftemp,  taxa != "Cephalopoda"), aes(x = taxa, y = t / 1e6, fill = type), stat = 'identity', position = position_dodge(), width = 0.7) + # 
-  scale_fill_manual(values = my_colors3, labels = c("Biomass", "Landings")) +
+  geom_bar(data = subset(dftemp,  taxa != "Cephalopoda"), aes(x = taxa, y = (t / 1000) + 1, fill = type), stat = 'identity', position = position_dodge(), width = 0.7) + # 
+  scale_fill_manual(values = my_colors1, labels = c("Biomass", "Catch")) +
   scale_x_discrete(labels = my_labels) +
   labs(fill = NULL) +
-  ylab("Million tonnes (/ year)") +
+  scale_y_log10(breaks = c(1, 11,  101,  1001,  10001), labels = c(0,  10,  100, 1000,  10000)) +
+  ylab(expression(paste("Tonnes (x1000) (", year^-1, ")"))) +
   xlab("Stock") +
   coord_flip() +
   theme_base() +
   theme(legend.position = c(.95,  .05),
         legend.justification = c("right", "bottom"))
 
-p3
+# p3
 
 
 ######################################################################################
@@ -254,7 +281,7 @@ df_deadfall_low <- dftemp %>%
   dplyr::select(taxa, type, carbon_deadfall) %>%
   rename(flux = carbon_deadfall) %>%
   mutate(flux = NA,
-    type_flux = "deadfall")
+         type_flux = "deadfall")
 
 df_respiration_low <- dftemp %>%
   dplyr::select(taxa, type, respiration_low) %>%
@@ -278,42 +305,51 @@ taxa_order <- dftemp2 %>%
 taxa_order <- taxa_order$taxa
 
 dftemp2$taxa <- factor(dftemp2$taxa,
-                       levels = taxa_order)
+                       levels = taxa_order) 
 
+dftemp2 <- dftemp2 %>%
+  mutate(flux = case_when(flux == 0 ~ NA,
+                          T ~ flux))
 
+# Make plot:
 p4 <- ggplot() +
-  geom_bar(data = subset(dftemp2, type == "biomass" & taxa != "Cephalopoda"), aes(x = taxa, y = flux / 1000, fill = type_flux), stat = 'identity', position = position_dodge(), width = 0.7, alpha = .5) + # fill = "orange",
-  geom_bar(data = subset(dftemp2, type == "landings" & taxa != "Cephalopoda"), aes(x = taxa, y = flux / 1000, fill = type_flux), stat = 'identity', position = position_dodge(),  width = 0.7) + # fill = "orange",
-  geom_errorbar(data = subset(dftemp2_low, type == "biomass" & taxa != "Cephalopoda"), aes(x = taxa, ymin = flux / 1000, ymax = flux / 1000, color = type_flux), 
-                position = position_dodge(width = .7), lwd = .3, width = .7, show.legend = FALSE) +
+  # geom_hline(yintercept = 1e6, alpha = .5, linetype = "dotted") +
+  geom_bar(data = subset(dftemp2, type == "biomass" & taxa != "Cephalopoda"), aes(x = taxa, y = (flux / 100) +1 , fill = type_flux), stat = 'identity', position = position_dodge(), width = 0.7, alpha = .5) + # fill = "orange",
+  geom_bar(data = subset(dftemp2, type == "catch" & taxa != "Cephalopoda"), aes(x = taxa, y = (flux / 100) + 1, fill = type_flux), stat = 'identity', position = position_dodge(),  width = 0.7) + # fill = "orange",
+  geom_errorbar(data = subset(dftemp2_low, type == "biomass" & taxa != "Cephalopoda"), aes(x = taxa, ymin = (flux / 100) + 1, ymax = (flux / 100) + 1, color = type_flux),
+                position = position_dodge(width = .7), lwd = .3, width = .7, show.legend = FALSE)+
+  # annotate("text", label = "*", x = c(16.1, 17.1), y = 1000, size = 5, hjust = -.2, color = "red", alpha = .7) +
   scale_x_discrete(labels = my_labels) +
-  scale_fill_manual(values = my_colors4, labels = c("Deadfall", "Feces", "Respiration")) +
-  scale_color_manual(values = my_colors4, labels = c("Deadfall", "Feces", "Respiration")) +
+  scale_fill_manual(values = my_colors2, labels = c("Deadfall", "Feces", "Respiration")) +
+  scale_color_manual(values = my_colors2, labels = c("Deadfall", "Feces", "Respiration")) +
+  scale_y_log10(breaks = c(1, 11,  101,  1001,  10001), labels = c(0,  10,  100, 1000,  10000)) +
   labs(fill = NULL) +
-  ylab("Thousand tonnes C / year") +
+  ylab(expression(paste("Tonnes C ", year^-1, " (x100)"))) +
   coord_flip() +
   theme_base() +
   theme(axis.title.y = element_blank(),
         legend.position = c(.95,  .05),
         legend.justification = c("right", "bottom"))
 
-p4
+# p4
 
 
 ######################################################################################
 # Combine panels:
-p <- p1 + p2 + p3 + p4 + plot_layout(ncol = 2) & 
+p <- p1 + p2 + p3 + p4 + plot_layout(ncol = 2) & # , heights = unit(c(10, 50), c('mm', 'null'))
   theme(plot.background = element_blank()) &
   plot_annotation(tag_levels = "a")
 
 p
 
 ggsave("plots/Figure_1.png", p, height = 85 , width = 90, units = "mm", scale = 3)
+ggsave("plots/Figure_1.pdf", p, height = 85 , width = 90, units = "mm", scale = 3)
 
 
 ######################################################################################
 
 # Global cephalopod deadfall based on biomasss estimates from Rodhus & Nigmatullin 1996 (Million tonnes)
+
 lifespan <- 1.5 # years
 
 # Lower range:
@@ -329,33 +365,18 @@ round(t / lifespan * somatic_ratio * wet_dry * dry_carbon, 1)
 
 
 # Physiological parameters:
-m <- 700 #  mass of cephalopod [g] (Ottmann et al in review) taking 1/2 of median asymptotic size of all species
-epsilon <- 0.7 # Assimilation efficiency
-f0 <- 0.6 # Average feeding
-fc <- 0.2 # Critical feeding
-h <- 100 # Coefficient of maximum consumption
+m <- 700 #  mass of cephalopod [g] (Ottmann et al 2024) taking 1/2 of median asymptotic size of all species
 
+# Calculate per individual:
+respiration_ind = (epsylon_sda * fc + f0) * h * m^n * wet_dry * dry_carbon  # Mass-specific; Converted to carbon [Tonnes]
+feces_ind = epsylon_fec * f0 * h * m^n * wet_dry * dry_carbon  #  Mass-specific; Converted to carbon [Tonnes]
 
-respiration_individual <- epsilon * h * fc * m^(-1/3) * m
-# waste_individual <- (1 - epsilon) * h * (f0 - fc) * m^(2/3)
-waste_individual <- (1 - epsilon) * h * (f0 - fc) * m^(-1/3) * m  
+# Calculate per population:
+respiration = (respiration_ind / 1e6) * (t * 1e6) # Tonnes
+feces = (feces_ind / 1e6) * (t * 1e6) # Tonnes
 
-respiration <- (respiration_individual / 1e6) / m * (t * 1e6) * wet_dry * dry_carbon
-waste <- (waste_individual / 1e6) / m * (t * 1e6) * wet_dry * dry_carbon
-
-
-# Fish
-t <- 1000 # million tonnes
-h <- 22.3
-
-respiration_individual <- epsilon * h * fc * m^(-1/3) * m
-waste_individual <- (1 - epsilon) * h * (f0 - fc) * m^(-1/3) * m  
-
-respiration <- (respiration_individual / 1e6) / m * (t * 1e6) * wet_dry * dry_carbon
-waste <- (waste_individual / 1e6) / m * (t * 1e6) * wet_dry * dry_carbon
-
-respiration + waste
-(respiration + waste) / t
+# Add them up:
+feces + respiration
 
 
 #                  END OF SCRIPT    

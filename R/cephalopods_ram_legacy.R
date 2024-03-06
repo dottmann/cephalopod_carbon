@@ -1,8 +1,23 @@
+## Ram legacy
+##
+## Authors: Daniel Ottmann 
+## Email: daniel.ottmann.riera@gmail.com
+##
+## Date created: September 2023
+## Last update:  March 2024
+##
+## ---------------------------
+##
+## Readme:
+##
+## This script looks at catch and biomass estimates of some of the major cephalopod taxa in recent years
+##
+## ---------------------------
 
 
+##################################################################
 
-
-
+# Load libraries:
 library(ramlegacy)
 library(tidyverse)
 
